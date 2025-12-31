@@ -1,0 +1,277 @@
+--- DOWNLOAD DATASET: https://drive.google.com/file/d/1kRCuDsFbrNr775LPXSLMc0thPwexMTsr/view?usp=drive_link
+
+CREATE DATABASE fiver;
+
+USE fiver;
+
+CREATE TABLE data_scientists
+(
+username VARCHAR(300),
+gigtitle VARCHAR(500),
+rating VARCHAR(10),
+ordercompleted VARCHAR(10),
+price VARCHAR(20),
+badge VARCHAR(50)
+);
+
+
+LOAD DATA INFILE "C:/ProgramData/MySQL/MySQL Server 9.3/Uploads/DataScienist on fiverr.csv"
+INTO TABLE data_scientists
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+SELECT *
+FROM data_scientists;
+
+CREATE TABLE dataset AS(
+SELECT DISTINCT *
+FROM data_scientists
+);
+
+SELECT *
+FROM dataset;
+
+
+--- DATA CLEANING 
+ALTER TABLE dataset
+DROP COLUMN username;
+
+
+UPDATE dataset
+SET gigtitle = TRIM(gigtitle);
+
+
+SELECT DISTINCT gigtitle
+FROM dataset
+ORDER BY 1;
+
+SELECT DISTINCT rating 
+FROM dataset
+ORDER BY 1;
+
+SELECT *
+FROM dataset
+WHERE rating = '';
+
+UPDATE dataset
+SET rating = NULL
+WHERE rating = '';
+
+
+SELECT DISTINCT ordercompleted
+FROM dataset
+ORDER BY 1;
+
+
+SELECT DISTINCT badge
+FROM dataset
+ORDER BY 1;
+
+SELECT DISTINCT badge, HEX(badge)
+FROM dataset
+ORDER BY 1;
+
+UPDATE dataset
+SET badge = REPLACE(badge, '\r', '');
+
+SELECT *
+FROM dataset
+WHERE badge = '';
+
+UPDATE dataset
+SET badge = 'No Badge'
+WHERE badge = '';
+
+
+SELECT DISTINCT price
+FROM dataset
+ORDER BY 1;
+
+UPDATE dataset
+SET price = REPLACE(price, '$', '');
+
+UPDATE dataset
+SET price = TRIM(price);
+
+SHOW COLUMNS
+FROM dataset;
+
+ALTER TABLE dataset
+MODIFY COLUMN rating INT;
+
+ALTER TABLE dataset
+MODIFY COLUMN ordercompleted INT;
+
+ALTER TABLE dataset
+MODIFY COLUMN price INT;
+
+-----------------------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------------
+--- Total Number of Observation
+SELECT COUNT(*)
+FROM dataset;
+
+/*
+============================================================
+DATASET OVERVIEW – TOTAL OBSERVATIONS
+============================================================
+
+Result:
+- Total number of records: 93
+
+Interpretation:
+The dataset contains 93 observations, with each row representing a
+unique Fiverr data science gig entry. This indicates a relatively small
+but focused dataset, suitable for exploratory data analysis and
+descriptive insights.
+
+Analytical Implication:
+With 93 records, the analysis is best suited for identifying trends,
+patterns, and relationships such as pricing behavior, order volume,
+ratings, and seller badge impact rather than building complex predictive
+models.
+
+Data Quality Note:
+The dataset size allows for easier validation, manual inspection, and
+clear interpretation of results, reducing the risk of noise while
+maintaining meaningful insights.
+
+Conclusion:
+This dataset provides a concise yet sufficient sample for understanding
+key characteristics of data science gigs on Fiverr.
+============================================================
+*/
+
+
+--- Words Count in Gig Title Column
+WITH RECURSIVE words AS (
+    SELECT
+        LOWER(
+            TRIM(
+                SUBSTRING_INDEX(gigtitle, ' ', 1)
+            )
+        ) AS word,
+        SUBSTRING(gigtitle, LENGTH(SUBSTRING_INDEX(gigtitle, ' ', 1)) + 2) AS rest
+    FROM dataset
+    WHERE gigtitle IS NOT NULL
+
+    UNION ALL
+
+    SELECT
+        LOWER(
+            TRIM(
+                SUBSTRING_INDEX(rest, ' ', 1)
+            )
+        ),
+        SUBSTRING(rest, LENGTH(SUBSTRING_INDEX(rest, ' ', 1)) + 2)
+    FROM words
+    WHERE rest <> ''
+)
+
+SELECT
+    word,
+    COUNT(*) AS word_count
+FROM words
+WHERE word <> ''
+GROUP BY word
+ORDER BY word_count DESC;
+
+--- Minimum, Average and Maximum Price Charged by data scietists on fiver 
+SELECT MIN(price) AS minimum_price, ROUND(AVG(price),0) AS average_price, MAX(price) AS maximum_price
+FROM dataset;
+
+/*
+============================================================
+DATA SCIENTIST GIG PRICING ANALYSIS – FIVERR
+============================================================
+
+Summary of Results:
+- Minimum Price  : $5
+- Average Price  : $50
+- Maximum Price  : $650
+
+Interpretation:
+The minimum price of $5 represents entry-level or promotional gig pricing,
+often used to attract clients with very limited service scope.
+
+The average price of $50 indicates the typical market rate for data science
+services on Fiverr. This reflects what most clients are willing to pay for
+common tasks such as data cleaning, exploratory analysis, dashboards, and
+basic machine learning.
+
+The maximum price of $650 highlights the presence of premium data science
+services on the platform. These higher-priced gigs usually involve advanced
+analytics, end-to-end project delivery, business-focused insights, and
+multiple revisions or consultations.
+
+Key Insight:
+Data science pricing on Fiverr shows a wide range, suggesting that earnings
+are strongly influenced by skill level, service value, and how well the
+seller positions their offering rather than the platform itself.
+
+Business Implication:
+To command higher prices, data scientists should focus on specialization,
+clear value propositions, and delivering business-impact-driven solutions.
+============================================================
+*/
+
+
+
+--- Title with the higest order completed on fiver
+SELECT gigtitle AS gig_title, SUM(ordercompleted) AS order_completed, price, rating, badge
+FROM dataset
+GROUP BY gig_title, price, rating, badge
+ORDER BY order_completed DESC
+LIMIT 20
+
+
+/*
+============================================================
+TOP DATA SCIENCE GIGS BY ORDER COMPLETION – FIVERR
+============================================================
+
+Overview:
+This query identifies the top-performing data science gigs on Fiverr
+based on the total number of completed orders.
+
+Key Observations:
+
+1. The highest-performing gig is:
+   "I will do data analysis and science with jupyter notebooks in python"
+   with 298 completed orders at a price of $35.
+   This indicates strong demand for Python-based data analysis using
+   Jupyter Notebooks at affordable pricing.
+
+2. Most of the top 10 gigs are priced between $25 and $50, suggesting
+   that moderate pricing attracts significantly more orders compared
+   to higher-priced offerings.
+
+3. All top-performing gigs have a 5-star rating, highlighting the
+   importance of service quality and customer satisfaction in driving
+   repeat orders and visibility on the platform.
+
+4. Sellers with badges (Level 1 and Level 2 Sellers) dominate the list,
+   showing that seller credibility and platform trust play a major role
+   in order volume.
+
+5. Gigs focused on Python, machine learning, data science projects,
+   tutoring, and Jupyter Notebook delivery consistently appear among
+   the highest order counts, indicating these are high-demand skill areas.
+
+6. Higher-priced gigs ($80 – $140) tend to have significantly fewer
+   completed orders, suggesting a trade-off between price and volume.
+
+Key Insight:
+High order completion on Fiverr is driven by a combination of
+affordable pricing, clear skill specialization (Python, ML, Data Science),
+strong ratings, and seller credibility rather than premium pricing alone.
+
+Business Implication:
+Data scientists aiming for higher order volume should focus on
+Python-based services, practical project delivery using Jupyter Notebooks,
+competitive pricing, and maintaining high service ratings to improve
+market visibility and demand.
+============================================================
+*/
